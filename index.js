@@ -1,35 +1,26 @@
-'use strict';
+const express = require("express");
+const { Client, LocalAuth } = require("whatsapp-web.js");
 
-const Constants = require('./src/util/Constants');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-module.exports = {
-    Client: require('./src/Client'),
-    
-    version: require('./package.json').version,
+const client = new Client({
+  authStrategy: new LocalAuth(),
+  puppeteer: {
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
+  }
+});
 
-    // Structures
-    Chat: require('./src/structures/Chat'),
-    PrivateChat: require('./src/structures/PrivateChat'),
-    GroupChat: require('./src/structures/GroupChat'),
-    Channel: require('./src/structures/Channel'),
-    Message: require('./src/structures/Message'),
-    MessageMedia: require('./src/structures/MessageMedia'),
-    Contact: require('./src/structures/Contact'),
-    PrivateContact: require('./src/structures/PrivateContact'),
-    BusinessContact: require('./src/structures/BusinessContact'),
-    ClientInfo: require('./src/structures/ClientInfo'),
-    Location: require('./src/structures/Location'),
-    Poll: require('./src/structures/Poll'),
-    ScheduledEvent: require('./src/structures/ScheduledEvent'),
-    ProductMetadata: require('./src/structures/ProductMetadata'),
-    List: require('./src/structures/List'),
-    Buttons: require('./src/structures/Buttons'),
-    Broadcast: require('./src/structures/Broadcast'),
-    
-    // Auth Strategies
-    NoAuth: require('./src/authStrategies/NoAuth'),
-    LocalAuth: require('./src/authStrategies/LocalAuth'),
-    RemoteAuth: require('./src/authStrategies/RemoteAuth'),
-    
-    ...Constants
-};
+client.initialize();
+
+client.on("ready", () => {
+  console.log("WhatsApp bot is ready");
+});
+
+app.get("/", (req, res) => {
+  res.send("WhatsApp bot running");
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
