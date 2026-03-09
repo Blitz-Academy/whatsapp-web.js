@@ -1,39 +1,3 @@
-'use strict';
-
-const Constants = require('./src/util/Constants');
-
-module.exports = {
-    Client: require('./src/Client'),
-    
-    version: require('./package.json').version,
-
-    // Structures
-    Chat: require('./src/structures/Chat'),
-    PrivateChat: require('./src/structures/PrivateChat'),
-    GroupChat: require('./src/structures/GroupChat'),
-    Channel: require('./src/structures/Channel'),
-    Message: require('./src/structures/Message'),
-    MessageMedia: require('./src/structures/MessageMedia'),
-    Contact: require('./src/structures/Contact'),
-    PrivateContact: require('./src/structures/PrivateContact'),
-    BusinessContact: require('./src/structures/BusinessContact'),
-    ClientInfo: require('./src/structures/ClientInfo'),
-    Location: require('./src/structures/Location'),
-    Poll: require('./src/structures/Poll'),
-    ScheduledEvent: require('./src/structures/ScheduledEvent'),
-    ProductMetadata: require('./src/structures/ProductMetadata'),
-    List: require('./src/structures/List'),
-    Buttons: require('./src/structures/Buttons'),
-    Broadcast: require('./src/structures/Broadcast'),
-    
-    // Auth Strategies
-    NoAuth: require('./src/authStrategies/NoAuth'),
-    LocalAuth: require('./src/authStrategies/LocalAuth'),
-    RemoteAuth: require('./src/authStrategies/RemoteAuth'),
-    
-    ...Constants
-};
-
 const express = require('express');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
@@ -41,31 +5,116 @@ const qrcode = require('qrcode-terminal');
 const app = express();
 app.use(express.json());
 
+const PORT = process.env.PORT || 3000;
+
+/*
+Initialize WhatsApp Client
+*/
 const client = new Client({
-  authStrategy: new LocalAuth()
+    authStrategy: new LocalAuth({
+        clientId: "blitz-bot"
+    }),
+    puppeteer: {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }
 });
 
-client.on('qr', qr => {
-  qrcode.generate(qr, { small: true });
+/*
+QR Code Event
+*/
+client.on('qr', (qr) => {
+    console.log("Scan the QR Code below:");
+    qrcode.generate(qr, { small: true });
 });
 
+/*
+Ready Event
+*/
 client.on('ready', () => {
-  console.log('WhatsApp Ready');
+    console.log('✅ WhatsApp Client is Ready!');
 });
 
+/*
+Auth Success
+*/
+client.on('authenticated', () => {
+    console.log('✅ WhatsApp Authenticated');
+});
+
+/*
+Auth Failure
+*/
+client.on('auth_failure', msg => {
+    console.error('❌ Authentication failure', msg);
+});
+
+/*
+Disconnected
+*/
+client.on('disconnected', reason => {
+    console.log('⚠️ Client was logged out', reason);
+});
+
+/*
+Start WhatsApp Client
+*/
 client.initialize();
 
-app.post('/send-message', async (req, res) => {
-  const number = req.body.number;
-  const message = req.body.message;
-
-  const chatId = number + "@c.us";
-
-  await client.sendMessage(chatId, message);
-
-  res.send("Message sent");
+/*
+Health Check Route
+*/
+app.get('/', (req, res) => {
+    res.send("WhatsApp Bot Running 🚀");
 });
 
-app.listen(3000, () => {
-  console.log("Server running");
+/*
+Send Message API
+POST /send-message
+Body:
+{
+  "number": "919876543210",
+  "message": "Hello from bot"
+}
+*/
+app.post('/send-message', async (req, res) => {
+    try {
+        const number = req.body.number;
+        const message = req.body.message;
+
+        if (!number || !message) {
+            return res.status(400).send("Number and message required");
+        }
+
+        const chatId = number + "@c.us";
+
+        await client.sendMessage(chatId, message);
+
+        res.send({
+            status: "success",
+            message: "Message sent successfully"
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("Error sending message");
+    }
+});
+
+/*
+Receive Incoming Messages
+*/
+client.on('message', async msg => {
+    console.log(`📩 Message from ${msg.from}: ${msg.body}`);
+
+    if (msg.body.toLowerCase() === "hi") {
+        msg.reply("Hello 👋 How can I help you?");
+    }
+});
+
+/*
+Start Express Server
+*/
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
