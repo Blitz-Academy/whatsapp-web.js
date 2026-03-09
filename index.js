@@ -1,52 +1,125 @@
-const express = require('express');
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const express = require("express");
+const { Client, LocalAuth } = require("whatsapp-web.js");
+const qrcode = require("qrcode-terminal");
 
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
+/*
+Initialize WhatsApp Client
+*/
 const client = new Client({
-  authStrategy: new LocalAuth(),
+  authStrategy: new LocalAuth({
+    clientId: "blitz-bot"
+  }),
   puppeteer: {
     headless: true,
-    executablePath: '/opt/render/.cache/puppeteer/chrome/linux-146.0.7680.31/chrome-linux64/chrome',
     args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu'
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu"
     ]
   }
 });
 
-client.on('qr', (qr) => {
-  console.log("Scan QR Code:");
+/*
+QR Code Event
+*/
+client.on("qr", (qr) => {
+  console.log("Scan this QR Code to login:");
   qrcode.generate(qr, { small: true });
 });
 
-client.on('ready', () => {
-  console.log("WhatsApp Ready");
+/*
+Client Ready
+*/
+client.on("ready", () => {
+  console.log("✅ WhatsApp Client is Ready!");
 });
 
+/*
+Authenticated
+*/
+client.on("authenticated", () => {
+  console.log("✅ WhatsApp Authenticated");
+});
+
+/*
+Auth Failure
+*/
+client.on("auth_failure", (msg) => {
+  console.error("❌ Authentication failed:", msg);
+});
+
+/*
+Disconnected
+*/
+client.on("disconnected", (reason) => {
+  console.log("⚠️ WhatsApp disconnected:", reason);
+});
+
+/*
+Receive Messages
+*/
+client.on("message", async (msg) => {
+  console.log(`📩 Message from ${msg.from}: ${msg.body}`);
+
+  // Example auto reply
+  if (msg.body.toLowerCase() === "hi") {
+    msg.reply("Hello 👋 Welcome to Blitz Academy!");
+  }
+});
+
+/*
+Start WhatsApp Client
+*/
 client.initialize();
 
-app.get("/", (req,res)=>{
-  res.send("Bot running");
+/*
+Health Check Route
+*/
+app.get("/", (req, res) => {
+  res.send("🚀 WhatsApp Bot Running");
 });
 
-app.post('/send-message', async (req,res)=>{
-  const number = req.body.number;
-  const message = req.body.message;
+/*
+API: Send WhatsApp Message
+POST /send-message
+Body:
+{
+ "number": "919876543210",
+ "message": "Hello from Blitz Academy"
+}
+*/
+app.post("/send-message", async (req, res) => {
+  try {
+    const { number, message } = req.body;
 
-  const chatId = number + "@c.us";
+    if (!number || !message) {
+      return res.status(400).send("Number and message are required");
+    }
 
-  await client.sendMessage(chatId, message);
+    const chatId = number + "@c.us";
 
-  res.send("Message sent");
+    await client.sendMessage(chatId, message);
+
+    res.send({
+      status: "success",
+      message: "Message sent successfully"
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error sending message");
+  }
 });
 
-app.listen(PORT, ()=>{
-  console.log("Server running on port " + PORT);
+/*
+Start Express Server
+*/
+app.listen(PORT, () => {
+  console.log(`🌐 Server running on port ${PORT}`);
 });
